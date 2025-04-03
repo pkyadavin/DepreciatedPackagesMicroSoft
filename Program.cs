@@ -116,7 +116,7 @@ class Program
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"  Failed to fetch content from {contentsUrl}");
+           // Console.WriteLine($"  Failed to fetch content from {contentsUrl}");
             // If the request fails (e.g., 404 or other errors), we consider that no file with "cs" is found
             return false;
         }
@@ -179,17 +179,14 @@ class Program
                                 var isDepreciated = await GetDepreciation(id, package.Version);
                                 if (isDepreciated)
                                 {
-                                    Console.WriteLine($"      (Depreciated) - Version:{package.PackageName} {package.Version}");
+                                    Console.WriteLine($"      (Depreciated)  ");
                                 }
                                 else
                                 {
-                                    Console.WriteLine($"      (not Depreciated) - Version:{package.PackageName} {package.Version}");
-
+                                    Console.WriteLine($"      (Not Depreciated)  ");
                                 }
                                 Console.WriteLine($" ");
-                            }
-
-                            //q Console.WriteLine($"        ID : {id}");                        
+                            }                                                  
 
                         }
                     }
@@ -245,13 +242,10 @@ class Program
                 })
                 .Select(item => item["@id"].ToString())
                 .ToList();
-
                 return result.LastOrDefault();
             }
             catch (Exception ex)
             {
-                //Console.WriteLine(ex.Message + packageName+ Version);
-                // Return null if the package or version is not found or if there is an error
                 return nugetUrl;
             }
         }
@@ -290,7 +284,7 @@ class Program
     // Async method to get the JSON response from NuGet API
     static async Task<string> GetJsonResponseAsync(string url)
     {
-        Console.WriteLine("      Reading from url: " + url);
+        //Console.WriteLine("      Reading from url: " + url);
         using (HttpClient client = new HttpClient())
         {
             HttpResponseMessage response = await client.GetAsync(url);
