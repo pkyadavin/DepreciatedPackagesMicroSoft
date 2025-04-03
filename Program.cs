@@ -1,4 +1,4 @@
-﻿using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Linq;
 using System.Xml.Linq;
 using System.IO.Compression;
 using System.Text.RegularExpressions;
@@ -7,7 +7,7 @@ class Program
 {
     static async Task Main(string[] args)
     {
-        string token = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"; // Load token from environment variable
+        string token = "xyz"; // Load token from environment variable
         if (string.IsNullOrEmpty(token))
         {
             Console.WriteLine("GitHub token is missing.");
@@ -172,22 +172,25 @@ class Program
                         foreach (var package in packageReferences)
                         {
                             Console.WriteLine($"    - {package.PackageName}, Version: {package.Version}");
-                        
-                            var id=await GetURL(package.PackageName,package.Version);
-                            if (id is not null){
-                                var isDepreciated=await GetDepreciation(id,package.Version);
+
+                            var id = await GetURL(package.PackageName, package.Version);
+                            if (id is not null)
+                            {
+                                var isDepreciated = await GetDepreciation(id, package.Version);
                                 if (isDepreciated)
                                 {
                                     Console.WriteLine($"      (Depreciated) - Version:{package.PackageName} {package.Version}");
-                                }else{
-                                    Console.WriteLine($"      (not Depreciated) - Version:{package.PackageName} {package.Version}");
-                                
                                 }
-                                 Console.WriteLine($" ");
+                                else
+                                {
+                                    Console.WriteLine($"      (not Depreciated) - Version:{package.PackageName} {package.Version}");
+
+                                }
+                                Console.WriteLine($" ");
                             }
-                      
-                           //q Console.WriteLine($"        ID : {id}");                        
-                        
+
+                            //q Console.WriteLine($"        ID : {id}");                        
+
                         }
                     }
                     else
@@ -210,123 +213,123 @@ class Program
     }
 
 
-static async Task<string> GetURL(string packageName,string Version )
-{
-    string nugetUrl = $"https://api.nuget.org/v3/registration5-gz-semver2/{packageName.ToLower()}/index.json";
-
-    using (HttpClient client = new HttpClient())
+    static async Task<string> GetURL(string packageName, string Version)
     {
-        try
-        {
-            string jsonResponse = await GetJsonResponseAsync(nugetUrl);
-        
-            // Parse the JSON response
-            JObject json = JObject.Parse(jsonResponse);       
+        string nugetUrl = $"https://api.nuget.org/v3/registration5-gz-semver2/{packageName.ToLower()}/index.json";
 
-            var result = json["items"]
-            .Where(item =>
+        using (HttpClient client = new HttpClient())
+        {
+            try
             {
-                var lowerVersionString = (string)item["lower"];
-                var upperVersionString = (string)item["upper"];
+                string jsonResponse = await GetJsonResponseAsync(nugetUrl);
 
-                // Check if both "lower" and "upper" values exist and are valid version strings
-                if (!string.IsNullOrEmpty(lowerVersionString) && !string.IsNullOrEmpty(upperVersionString))
+                // Parse the JSON response
+                JObject json = JObject.Parse(jsonResponse);
+
+                var result = json["items"]
+                .Where(item =>
                 {
-                    var lowerVersion = NuGetVersion.Parse(lowerVersionString);
-                    var upperVersion = NuGetVersion.Parse(upperVersionString);
-                    var compareVersion = NuGetVersion.Parse(Version);               
-                    return upperVersion.CompareTo(compareVersion)>0 && compareVersion.CompareTo(lowerVersion)>0;                   
-                }
+                    var lowerVersionString = (string)item["lower"];
+                    var upperVersionString = (string)item["upper"];
 
-                return false;
-            })
-            .Select(item => item["@id"].ToString())
-            .ToList();
+                    // Check if both "lower" and "upper" values exist and are valid version strings
+                    if (!string.IsNullOrEmpty(lowerVersionString) && !string.IsNullOrEmpty(upperVersionString))
+                    {
+                        var lowerVersion = NuGetVersion.Parse(lowerVersionString);
+                        var upperVersion = NuGetVersion.Parse(upperVersionString);
+                        var compareVersion = NuGetVersion.Parse(Version);
+                        return upperVersion.CompareTo(compareVersion) > 0 && compareVersion.CompareTo(lowerVersion) > 0;
+                    }
 
-            return result.LastOrDefault();
-        }
-        catch (Exception ex)
-        {
-            //Console.WriteLine(ex.Message + packageName+ Version);
-            // Return null if the package or version is not found or if there is an error
-            return nugetUrl;
+                    return false;
+                })
+                .Select(item => item["@id"].ToString())
+                .ToList();
+
+                return result.LastOrDefault();
+            }
+            catch (Exception ex)
+            {
+                //Console.WriteLine(ex.Message + packageName+ Version);
+                // Return null if the package or version is not found or if there is an error
+                return nugetUrl;
+            }
         }
     }
-}
 
-static async Task<Boolean> GetDepreciation(string nugetUrl, string Version )
-{
-     
-    using (HttpClient client = new HttpClient())
+    static async Task<Boolean> GetDepreciation(string nugetUrl, string Version)
     {
-        try
-        {
-            string jsonResponse = await GetJsonResponseAsync(nugetUrl);
-        
-            // Parse the JSON response
-            JObject json = JObject.Parse(jsonResponse);       
 
-         var result = json["items"]
-            .Where(item => item["id"] != null && item["id"].ToString().Contains(Version) &&
-                           item["catalogEntry"] != null &&
-                           item["catalogEntry"]["deprecation"] != null)
-            .ToList();
-
-        return result.Any(); // Returns true if any element in result exists, false if empty
- 
-        }
-        catch (Exception ex)
+        using (HttpClient client = new HttpClient())
         {
-            Console.WriteLine(ex.Message +nugetUrl+Version);
-            // Return null if the package or version is not found or if there is an error
-            return false;
+            try
+            {
+                string jsonResponse = await GetJsonResponseAsync(nugetUrl);
+
+                // Parse the JSON response
+                JObject json = JObject.Parse(jsonResponse);
+
+                var item = json["items"]?.FirstOrDefault(i =>
+                {
+                   // Console.WriteLine(i["catalogEntry"]?["version"]?.ToString() + " Compare " + Version);
+                    return i["catalogEntry"]?["version"]?.ToString() == Version;
+                });
+
+                // Check if the version is found and is deprecated
+                return item != null && item["catalogEntry"]?["deprecation"] != null;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message + nugetUrl + Version);
+                // Return null if the package or version is not found or if there is an error
+                return false;
+            }
         }
     }
-}
 
     // Async method to get the JSON response from NuGet API
     static async Task<string> GetJsonResponseAsync(string url)
     {
-           Console.WriteLine("      Reading from url: " + url);
-           using (HttpClient client = new HttpClient())
+        Console.WriteLine("      Reading from url: " + url);
+        using (HttpClient client = new HttpClient())
+        {
+            HttpResponseMessage response = await client.GetAsync(url);
+            response.EnsureSuccessStatusCode();
+
+            // Check for compression
+            var contentEncoding = response.Content.Headers.ContentEncoding;
+            Stream responseStream = await response.Content.ReadAsStreamAsync();
+
+            if (contentEncoding.Contains("gzip"))
             {
-                HttpResponseMessage response = await client.GetAsync(url);
-                response.EnsureSuccessStatusCode();
-
-                // Check for compression
-                var contentEncoding = response.Content.Headers.ContentEncoding;
-                Stream responseStream = await response.Content.ReadAsStreamAsync();
-
-                if (contentEncoding.Contains("gzip"))
+                // Decompress GZIP
+                using (var decompressedStream = new GZipStream(responseStream, CompressionMode.Decompress))
                 {
-                    // Decompress GZIP
-                    using (var decompressedStream = new GZipStream(responseStream, CompressionMode.Decompress))
+                    using (var reader = new StreamReader(decompressedStream))
                     {
-                        using (var reader = new StreamReader(decompressedStream))
-                        {
-                            string decompressedContent = await reader.ReadToEndAsync();
-                            return decompressedContent;
-                        }
+                        string decompressedContent = await reader.ReadToEndAsync();
+                        return decompressedContent;
                     }
-                }
-                else if (contentEncoding.Contains("deflate"))
-                {
-                    // Decompress Deflate
-                    using (var decompressedStream = new DeflateStream(responseStream, CompressionMode.Decompress))
-                    {
-                        using (var reader = new StreamReader(decompressedStream))
-                        {
-                            string decompressedContent = await reader.ReadToEndAsync();
-                            return decompressedContent;
-                        }
-                    }
-                }
-                else
-                {
-                    // No compression, read normally
-                    return await response.Content.ReadAsStringAsync();
                 }
             }
+            else if (contentEncoding.Contains("deflate"))
+            {
+                // Decompress Deflate
+                using (var decompressedStream = new DeflateStream(responseStream, CompressionMode.Decompress))
+                {
+                    using (var reader = new StreamReader(decompressedStream))
+                    {
+                        string decompressedContent = await reader.ReadToEndAsync();
+                        return decompressedContent;
+                    }
+                }
+            }
+            else
+            {
+                // No compression, read normally
+                return await response.Content.ReadAsStringAsync();
+            }
+        }
 
     }
 
